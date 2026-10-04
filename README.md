@@ -28,7 +28,45 @@ Or install it yourself as:
 
 ## Usage
 
-TODO: Write usage instructions here
+### CBOR
+
+```ruby
+require 'seaboar'
+
+encoded = Seaboar.encode({ 'answer' => 42 })
+Seaboar.decode(encoded)
+```
+
+### DAG-CBOR blocks
+
+`Seaboar` can encode [IPLD DAG-CBOR](https://ipld.io/specs/codecs/dag-cbor/spec/) blocks, create CIDv1 / SHA-256 CIDs for them, and resolve paths through links. DAG-CBOR values are restricted to the IPLD data model: integers, floats, booleans, `nil`, byte and text strings, arrays, maps, and `Seaboar::CID` links. Maps use text keys and deterministic length-then-byte order; tags and indefinite-length CBOR values are rejected except for CID tag 42.
+
+```ruby
+require 'seaboar'
+
+store = Seaboar::InMemoryBlockStore.new
+
+child = Seaboar.create_dag_cbor_block({ 'value' => 'hello' })
+root = Seaboar.create_dag_cbor_block({
+  'items' => [child.cid]
+})
+
+store.put(root)
+store.put(child)
+
+selection = Seaboar.select_dag_cbor(root, ['items', 0, 'value'], store)
+selection.value  # => "hello"
+selection.blocks # => #<Set: {root block, child block}>
+```
+
+A slash-separated path is also accepted (`'items/0/value'`). Numeric path segments select array indexes; all other segments select map keys. Any object responding to `get(cid)` and returning a `Seaboar::Block` or binary string can be injected as the block store. Every fetched block is checked against its CID digest before decoding.
+
+- `Seaboar::MissingLinkError` (a subclass of `Seaboar::MissingBlockError`) means a referenced block was absent from the store.
+- `Seaboar::PathNotFoundError` means an array index or map key does not exist.
+- `Seaboar::PathResolutionError` means the path segment cannot be applied to the current node.
+- `Seaboar::BlockIntegrityError` means the stored bytes do not hash to the requested CID.
+
+`InMemoryBlockStore#put_raw` is available for tests that need to insert deliberately corrupted bytes. No IPFS node or network connection is required.
 
 ## Contributing
 
