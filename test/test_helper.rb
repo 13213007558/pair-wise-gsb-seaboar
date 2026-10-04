@@ -1,5 +1,7 @@
 require 'minitest/autorun'
 
+MiniTest = Minitest unless defined?(MiniTest)
+
 require 'time'
 
 $:.unshift File.expand_path(File.join(File.dirname(__FILE__), '..', 'lib'))

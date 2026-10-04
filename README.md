@@ -28,7 +28,37 @@ Or install it yourself as:
 
 ## Usage
 
+### CBOR
+
 TODO: Write usage instructions here
+
+### DAG-CBOR blocks
+
+Seaboar can encode [IPLD DAG-CBOR](https://ipld.io/specs/codecs/dag-cbor/spec/) values and address the resulting blocks with CIDv1 multihashes (`dag-cbor` codec, SHA-256). Links are represented by `Seaboar::CID` and encoded with CBOR tag 42. No IPFS node or network connection is required.
+
+```ruby
+leaf = Seaboar::Block.create('value' => 42)
+root = Seaboar::Block.create(
+  'leaf' => leaf.cid,
+  'same_leaf' => leaf.cid
+)
+
+store = Seaboar::MemoryBlockStore.new([leaf, root])
+result = Seaboar::BlockService.new(store).select(root.cid, ['leaf', 'value'])
+
+result.value   # 42
+result.blocks  # [root, leaf], de-duplicated by CID
+```
+
+Path entries are hash keys or array indexes. A link is dereferenced only when the path continues through it, and every block fetched from the store is checked against its CID digest before decoding.
+
+- A missing root raises `Seaboar::MissingBlockError`.
+- A missing linked block raises `Seaboar::MissingLinkError`.
+- A missing hash key raises `KeyError`.
+- An out-of-range array index raises `IndexError`.
+- Content whose digest does not match its CID raises `Seaboar::BlockIntegrityError`.
+
+Any object implementing `fetch(cid)` can be injected as a block store. `fetch` may return a `Seaboar::Block`, encoded block bytes, or another object responding to `cid` and `data`.
 
 ## Contributing
 
